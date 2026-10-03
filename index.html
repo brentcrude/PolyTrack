@@ -202,12 +202,14 @@ fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
     </ul>
     <p class="banner" id="banner" role="status" hidden></p>
     <form class="auth" id="auth-form" hidden novalidate>
-      <p class="auth-title">Sign in to share codes <span class="hint">(browsing and copying need no account)</span></p>
+      <p class="auth-title" id="auth-title">Sign in to share codes <span class="hint">(browsing and copying need no account)</span></p>
       <div class="auth-row">
-        <input type="text" id="auth-name" maxlength="40" autocomplete="nickname" placeholder="Display name" aria-label="Display name">
+        <input type="text" id="auth-name" maxlength="40" autocomplete="nickname" placeholder="Display name" aria-label="Display name" hidden>
         <input type="email" id="auth-email" autocomplete="email" placeholder="you@example.com" aria-label="Email address">
-        <button class="btn" type="submit" id="auth-submit">Email me a link</button>
+        <input type="password" id="auth-pass" autocomplete="current-password" placeholder="Password" aria-label="Password">
+        <button class="btn" type="submit" id="auth-submit">Sign in</button>
       </div>
+      <p class="hint"><button type="button" class="linkbtn" id="auth-mode">New here? Create an account</button></p>
       <p class="hint" id="auth-msg" role="status"></p>
     </form>
     <p class="auth-who" id="auth-who" hidden><span id="auth-label"></span> <button type="button" class="linkbtn" id="auth-out">Sign out</button></p>
@@ -675,17 +677,32 @@ try { if (window.PolytrackAdapter) PolytrackAdapter.install(window); } catch (e)
         form.hidden = false;
       }
     });
+    var mode = 'in';
+    function setMode(m) {
+      mode = m;
+      var up = m === 'up';
+      $('auth-name').hidden = !up;
+      $('auth-pass').setAttribute('autocomplete', up ? 'new-password' : 'current-password');
+      $('auth-submit').textContent = up ? 'Create account' : 'Sign in';
+      $('auth-mode').textContent = up ? 'Already have an account? Sign in' : 'New here? Create an account';
+      msg.textContent = '';
+    }
+    $('auth-mode').addEventListener('click', function () { setMode(mode === 'in' ? 'up' : 'in'); });
+    var done = function () { (auth.reload || function () { location.reload(); })(); };
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var email = $('auth-email').value.trim(), name = $('auth-name').value.trim();
+      var email = $('auth-email').value.trim(), pass = $('auth-pass').value, name = $('auth-name').value.trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = 'Enter a valid email address.'; return; }
-      if (!name) { msg.textContent = 'Pick a display name so people know who shared a code.'; return; }
+      if (mode === 'up' && !name) { msg.textContent = 'Pick a display name so people know who shared a code.'; return; }
+      if (pass.length < 8) { msg.textContent = 'Use a password of at least 8 characters.'; return; }
       $('auth-submit').disabled = true;
-      msg.textContent = 'Sending…';
-      auth.signIn(email, name).then(function () {
-        msg.textContent = 'Check your email and open the link to finish signing in.';
+      msg.textContent = mode === 'up' ? 'Creating your account\u2026' : 'Signing in\u2026';
+      var p = mode === 'up' ? auth.signUp(email, pass, name) : auth.signIn(email, pass);
+      p.then(function (r) {
+        if (r && r.needsConfirm) { msg.textContent = 'Account created. Check your email and confirm it, then sign in.'; return; }
+        done();
       }, function (err) {
-        msg.textContent = 'Could not send the link' + (err && err.message ? ': ' + err.message : '.');
+        msg.textContent = (err && err.message) ? err.message : 'Something went wrong. Try again.';
       }).then(function () { $('auth-submit').disabled = false; });
     });
     $('auth-out').addEventListener('click', function () {

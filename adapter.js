@@ -140,11 +140,17 @@
     var auth = {
       ready: ready,
       user: function () { return ready.then(function () { return session ? session.user : null; }); },
-      signIn: function (email, name) {
-        return client.auth.signInWithOtp({
-          email: email,
-          options: { data: { name: name }, emailRedirectTo: (typeof location !== 'undefined' ? location.origin + location.pathname : undefined) }
-        }).then(function (r) { if (r && r.error) return Promise.reject(r.error); });
+      signIn: function (email, password) {
+        return client.auth.signInWithPassword({ email: email, password: password })
+          .then(function (r) { if (r && r.error) return Promise.reject(r.error); });
+      },
+      // Resolves { needsConfirm: true } when the project still requires email confirmation (no session yet).
+      signUp: function (email, password, name) {
+        return client.auth.signUp({ email: email, password: password, options: { data: { name: name } } })
+          .then(function (r) {
+            if (r && r.error) return Promise.reject(r.error);
+            return { needsConfirm: !(r && r.data && r.data.session) };
+          });
       },
       signOut: function () { return client.auth.signOut(); }
     };
