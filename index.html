@@ -1,0 +1,739 @@
+<title>Polytrack Codes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky "share a code" panel beside a filterable list of code cards; stacks on phones.
+   Identity: kerb-stripe edge, timing-sheet monospace for codes, channel pills that also carry a text label. */
+:root {
+  --bg: #e7eaec;
+  --surface: #f6f7f8;
+  --surface-2: #dde1e4;
+  --ink: #171b1f;
+  --ink-2: #4b545c;
+  --line: #c5cbd0;
+  --accent: #c8321f;
+  --accent-ink: #ffffff;
+  --stable: #176a5c;
+  --stable-bg: #d3ebe5;
+  --dev: #7a4f00;
+  --dev-bg: #f5e3b8;
+  --danger: #a3261a;
+  --focus: #1b5fd1;
+  --font-display: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14181b; --surface: #1d2226; --surface-2: #262c31; --ink: #e8ebed; --ink-2: #a2acb4;
+    --line: #333b41; --accent: #ec5b44; --accent-ink: #14181b; --stable: #5fcfb8; --stable-bg: #17342f;
+    --dev: #efbf5a; --dev-bg: #3b2f12; --danger: #ff8d7e; --focus: #7aa7ff; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14181b; --surface: #1d2226; --surface-2: #262c31; --ink: #e8ebed; --ink-2: #a2acb4;
+  --line: #333b41; --accent: #ec5b44; --accent-ink: #14181b; --stable: #5fcfb8; --stable-bg: #17342f;
+  --dev: #efbf5a; --dev-bg: #3b2f12; --danger: #ff8d7e; --focus: #7aa7ff; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.5;
+  padding-inline: 16px;
+  padding-block: 0 48px;
+}
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.wrap { max-width: 1100px; margin-inline: auto; }
+
+/* Header */
+.masthead { padding-block: 28px 20px; }
+.masthead::after {
+  content: "";
+  display: block;
+  height: 10px;
+  margin-top: 20px;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 18px, var(--surface) 18px 36px);
+  border-block: 1px solid var(--line);
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(2.4rem, 8vw, 3.8rem);
+  line-height: 0.95;
+  letter-spacing: 0.01em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  text-wrap: balance;
+}
+.lede { margin: 0; max-width: 58ch; color: var(--ink-2); }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 16px 0 0; padding: 0; list-style: none;
+  font-family: var(--font-mono); font-size: 0.8rem; color: var(--ink-2); }
+.stats b { color: var(--ink); font-weight: 500; }
+
+.banner { margin: 16px 0 0; padding: 10px 14px; border: 1px solid var(--line); background: var(--surface-2); font-size: 0.95rem; }
+.banner[hidden] { display: none; }
+.auth { margin: 16px 0 0; padding: 12px 14px; border: 1px solid var(--line); background: var(--surface); }
+.auth[hidden], .auth-who[hidden] { display: none; }
+.auth-title { margin: 0 0 8px; font-weight: 600; }
+.auth-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.auth-row input { flex: 1 1 160px; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); background: var(--bg); }
+.auth-who { margin: 12px 0 0; font-size: 0.9rem; color: var(--ink-2); }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; }
+
+/* Page grid */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; margin-top: 24px; align-items: start; }
+@media (min-width: 860px) {
+  .grid { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); gap: 32px; }
+  .compose { position: sticky; top: 16px; }
+}
+
+/* Compose panel */
+.compose-toggle {
+  width: 100%; padding: 12px 16px; border: 2px solid var(--accent); background: var(--accent);
+  color: var(--accent-ink); font-weight: 600; cursor: pointer; text-align: left;
+}
+.compose-toggle[aria-expanded="true"] { background: transparent; color: var(--accent); }
+.compose { display: none; background: var(--surface); border: 1px solid var(--line); padding: 18px; }
+.compose.open { display: block; margin-top: 12px; }
+@media (min-width: 860px) {
+  .compose-toggle { display: none; }
+  .compose, .compose.open { display: block; margin-top: 0; }
+}
+.compose h2, .list-head h2 {
+  font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; text-transform: uppercase;
+  letter-spacing: 0.04em; margin: 0 0 14px;
+}
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; min-width: 0; }
+.field > label, .field > legend, legend.lab {
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); padding: 0;
+}
+.field input[type="text"], .field textarea, .tools select, .tools input[type="search"] {
+  width: 100%; padding: 9px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 2px;
+}
+.field textarea { min-height: 7.5rem; resize: vertical; font-family: var(--font-mono); font-size: 0.85rem; word-break: break-all; }
+.field input[aria-invalid="true"], .field textarea[aria-invalid="true"] { border-color: var(--danger); }
+.hint { font-size: 0.8rem; color: var(--ink-2); margin: 0; }
+.err { font-size: 0.85rem; color: var(--danger); margin: 0; min-height: 0; }
+.err:empty { display: none; }
+fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 0; margin-top: 4px; }
+.seg label { cursor: pointer; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span {
+  display: block; text-align: center; padding: 9px 10px; border: 1px solid var(--line); background: var(--bg);
+  font-weight: 600;
+}
+.seg label:first-child span { border-right-width: 0; }
+.seg input:checked + span.s-stable { background: var(--stable-bg); color: var(--stable); border-color: var(--stable); }
+.seg input:checked + span.s-dev { background: var(--dev-bg); color: var(--dev); border-color: var(--dev); }
+.seg input:checked + span.s-dev { border-left-width: 1px; }
+.seg input:focus-visible + span { outline: 3px solid var(--focus); outline-offset: 2px; }
+.btn {
+  padding: 10px 16px; border: 2px solid var(--accent); background: var(--accent); color: var(--accent-ink);
+  font-weight: 600; cursor: pointer; border-radius: 2px;
+}
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.small { padding: 5px 12px; font-size: 0.9rem; }
+.btn.plain { border-color: var(--line); background: transparent; color: var(--ink); }
+.btn.danger { border-color: var(--danger); background: transparent; color: var(--danger); }
+.btn.danger.confirm { background: var(--danger); color: var(--bg); }
+.submit-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.count { font-family: var(--font-mono); font-size: 0.75rem; color: var(--ink-2); }
+
+/* List */
+.list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.list-head h2 { margin-bottom: 10px; }
+.tools { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; margin-bottom: 18px; }
+@media (min-width: 560px) { .tools { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr); } .tools .chan { grid-column: 1 / -1; } }
+.chan { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 6px 14px; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-weight: 600; font-size: 0.9rem;
+  border-radius: 999px;
+}
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+
+.cards { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
+.card { background: var(--surface); border: 1px solid var(--line); padding: 16px; min-width: 0; }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.card h3 { font-family: var(--font-display); font-weight: 600; font-size: 1.5rem; line-height: 1.1; margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { font-family: var(--font-mono); font-size: 0.75rem; padding: 3px 9px; border-radius: 2px; font-weight: 500; white-space: nowrap; }
+.pill.stable { background: var(--stable-bg); color: var(--stable); }
+.pill.dev { background: var(--dev-bg); color: var(--dev); }
+.pill.ver { background: var(--surface-2); color: var(--ink); }
+.code {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  margin: 12px 0 0; padding: 10px 12px; background: var(--surface-2); font-family: var(--font-mono); font-size: 0.82rem;
+  word-break: break-all; border-left: 4px solid var(--line); user-select: all;
+}
+.code.full { -webkit-line-clamp: unset; display: block; max-height: 12rem; overflow: auto; }
+.notes { margin: 10px 0 0; color: var(--ink-2); font-size: 0.95rem; overflow-wrap: anywhere; white-space: pre-wrap; }
+.card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; margin-top: 14px; }
+.meta { font-size: 0.85rem; color: var(--ink-2); font-family: var(--font-mono); min-width: 0; overflow-wrap: anywhere; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.empty { border: 2px dashed var(--line); padding: 28px 20px; text-align: left; }
+.empty h3 { font-family: var(--font-display); font-size: 1.6rem; font-weight: 600; margin: 0 0 6px; text-transform: uppercase; }
+.empty p { margin: 0 0 12px; color: var(--ink-2); max-width: 52ch; }
+
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 2px; font-weight: 600; font-size: 0.95rem;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s; max-width: calc(100% - 32px);
+}
+.toast.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <h1>Polytrack Codes</h1>
+    <p class="lede">Share track codes with the game version they were built on. Mark each one stable or dev so nobody imports a code into the wrong build.</p>
+    <ul class="stats" id="stats" aria-label="Totals">
+      <li><b id="st-total">0</b> codes</li>
+      <li><b id="st-stable">0</b> stable</li>
+      <li><b id="st-dev">0</b> dev</li>
+      <li><b id="st-ver">0</b> versions</li>
+    </ul>
+    <p class="banner" id="banner" role="status" hidden></p>
+    <form class="auth" id="auth-form" hidden novalidate>
+      <p class="auth-title">Sign in to share codes <span class="hint">(browsing and copying need no account)</span></p>
+      <div class="auth-row">
+        <input type="text" id="auth-name" maxlength="40" autocomplete="nickname" placeholder="Display name" aria-label="Display name">
+        <input type="email" id="auth-email" autocomplete="email" placeholder="you@example.com" aria-label="Email address">
+        <button class="btn" type="submit" id="auth-submit">Email me a link</button>
+      </div>
+      <p class="hint" id="auth-msg" role="status"></p>
+    </form>
+    <p class="auth-who" id="auth-who" hidden><span id="auth-label"></span> <button type="button" class="linkbtn" id="auth-out">Sign out</button></p>
+  </header>
+
+  <main class="grid">
+    <section aria-label="Share a code">
+      <button class="compose-toggle" id="compose-toggle" type="button" aria-expanded="false" aria-controls="compose">Share a code</button>
+      <form class="compose" id="compose" novalidate>
+        <h2>Share a code</h2>
+        <div class="field">
+          <label for="f-name">Track name</label>
+          <input type="text" id="f-name" maxlength="60" autocomplete="off" placeholder="Name your track">
+          <p class="err" id="e-name" role="alert"></p>
+        </div>
+        <div class="field">
+          <label for="f-code">Track code</label>
+          <textarea id="f-code" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste the code exported from the game"></textarea>
+          <p class="err" id="e-code" role="alert"></p>
+          <p class="count" id="code-count">0 characters</p>
+        </div>
+        <div class="field">
+          <label for="f-version">Game version</label>
+          <input type="text" id="f-version" maxlength="24" autocomplete="off" list="version-list" placeholder="e.g. 0.6.0 or a dev build label">
+          <datalist id="version-list"></datalist>
+          <p class="hint">Use the version number the game shows.</p>
+          <p class="err" id="e-version" role="alert"></p>
+        </div>
+        <fieldset>
+          <legend class="lab">Release channel</legend>
+          <div class="seg">
+            <label><input type="radio" name="channel" value="stable" checked><span class="s-stable">Stable</span></label>
+            <label><input type="radio" name="channel" value="dev"><span class="s-dev">Dev release</span></label>
+          </div>
+        </fieldset>
+        <div class="field">
+          <label for="f-notes">Notes (optional)</label>
+          <input type="text" id="f-notes" maxlength="280" autocomplete="off" placeholder="Length, difficulty, car setup, anything useful">
+        </div>
+        <div class="submit-row">
+          <button class="btn" type="submit" id="submit">Share code</button>
+          <span class="hint" id="submit-hint"></span>
+        </div>
+      </form>
+    </section>
+
+    <section aria-label="Shared codes">
+      <div class="list-head"><h2>Shared codes</h2></div>
+      <div class="tools">
+        <div class="chan" role="group" aria-label="Release channel filter">
+          <button class="chip" type="button" data-chan="all" aria-pressed="true">All</button>
+          <button class="chip" type="button" data-chan="stable" aria-pressed="false">Stable</button>
+          <button class="chip" type="button" data-chan="dev" aria-pressed="false">Dev</button>
+        </div>
+        <input type="search" id="q" placeholder="Search name, notes or code" aria-label="Search codes">
+        <select id="vsel" aria-label="Filter by game version"><option value="all">All versions</option></select>
+        <select id="sort" aria-label="Sort order">
+          <option value="new">Newest first</option>
+          <option value="old">Oldest first</option>
+          <option value="name">Name A to Z</option>
+          <option value="ver">Version, high to low</option>
+        </select>
+      </div>
+      <ul class="cards" id="list" aria-live="polite"></ul>
+    </section>
+  </main>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="adapter.js"></script>
+<script>
+/* Outside Claude, back the page with Supabase. Inside Claude, window.claude already exists and this does nothing. */
+try { if (window.PolytrackAdapter) PolytrackAdapter.install(window); } catch (e) { window.__backendError = 'Could not start the backend.'; }
+</script>
+<script>
+(function () {
+  'use strict';
+
+  var MAX_CODE = 200000, MAX_NAME = 60, MAX_VER = 24, MAX_NOTES = 280;
+  var VER_RE = /^[A-Za-z0-9][A-Za-z0-9._+\- ]{0,23}$/;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    tracks: [], loaded: false, channel: 'all', version: 'all', q: '', sort: 'new',
+    myId: null, canWrite: null, canEdit: false, db: null, user: null,
+    expanded: {}, pendingDelete: null, busy: false, renderToken: 0
+  };
+
+  /* ---------- helpers ---------- */
+  function h(tag, props) {
+    var el = document.createElement(tag);
+    var p = props || {};
+    Object.keys(p).forEach(function (k) {
+      var v = p[k];
+      if (v === null || v === undefined || v === false) return;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k.indexOf('on') === 0) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var kids = [].concat(arguments[i]);
+      kids.forEach(function (c) {
+        if (c === null || c === undefined || c === false) return;
+        el.append(c.nodeType ? c : document.createTextNode(String(c)));
+      });
+    }
+    return el;
+  }
+
+  function naturalCompare(a, b) {
+    var pa = String(a).toLowerCase().split(/(\d+)/), pb = String(b).toLowerCase().split(/(\d+)/);
+    for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+      var x = pa[i] === undefined ? '' : pa[i], y = pb[i] === undefined ? '' : pb[i];
+      if (x === y) continue;
+      var nx = /^\d+$/.test(x), ny = /^\d+$/.test(y);
+      if (nx && ny) return parseInt(x, 10) - parseInt(y, 10);
+      return x < y ? -1 : 1;
+    }
+    return 0;
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+  }
+
+  function setBanner(msg) {
+    var b = $('banner');
+    b.textContent = msg || '';
+    b.hidden = !msg;
+  }
+
+  function legacyCopy(text) {
+    var ta = h('textarea', { 'aria-hidden': 'true', style: 'position:fixed;top:0;left:0;opacity:0' });
+    ta.value = text;
+    document.body.append(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  function copyCode(text, btn) {
+    var done = function (ok) {
+      toast(ok ? 'Code copied' : 'Copy failed. Open the code and select it.');
+      if (ok && btn) {
+        var old = btn.textContent;
+        btn.textContent = 'Copied';
+        setTimeout(function () { btn.textContent = old; }, 1500);
+      }
+    };
+    try {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { done(legacyCopy(text)); });
+    } catch (e) {
+      done(legacyCopy(text));
+    }
+  }
+
+  function store(key, val) { try { localStorage.setItem(key, val); } catch (e) { /* storage may be blocked */ } }
+  function recall(key) { try { return localStorage.getItem(key) || ''; } catch (e) { return ''; } }
+
+  /* ---------- derived data ---------- */
+  function versions() {
+    var seen = {};
+    state.tracks.forEach(function (t) { seen[t.version] = true; });
+    return Object.keys(seen).sort(function (a, b) { return naturalCompare(b, a); });
+  }
+
+  function visible() {
+    var q = state.q.trim().toLowerCase();
+    var out = state.tracks.filter(function (t) {
+      if (state.channel !== 'all' && t.channel !== state.channel) return false;
+      if (state.version !== 'all' && t.version !== state.version) return false;
+      if (q && (t.name + ' ' + t.notes + ' ' + t.version + ' ' + t.code).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    out.sort(function (a, b) {
+      if (state.sort === 'old') return a.createdAt - b.createdAt;
+      if (state.sort === 'name') return a.name.localeCompare(b.name);
+      if (state.sort === 'ver') return naturalCompare(b.version, a.version) || b.createdAt - a.createdAt;
+      return b.createdAt - a.createdAt;
+    });
+    return out;
+  }
+
+  function fromDoc(d) {
+    var x = d.data() || {};
+    var str = function (v) { return typeof v === 'string' ? v : ''; };
+    return {
+      id: d.id,
+      name: str(x.name) || 'Untitled track',
+      code: str(x.code),
+      version: str(x.version) || 'unknown',
+      channel: x.channel === 'dev' ? 'dev' : 'stable',
+      notes: str(x.notes),
+      authorId: str(x.authorId),
+      createdAt: typeof x.createdAt === 'number' ? x.createdAt : 0
+    };
+  }
+
+  /* ---------- rendering ---------- */
+  function renderStats() {
+    var t = state.tracks;
+    $('st-total').textContent = t.length;
+    $('st-stable').textContent = t.filter(function (x) { return x.channel === 'stable'; }).length;
+    $('st-dev').textContent = t.filter(function (x) { return x.channel === 'dev'; }).length;
+    $('st-ver').textContent = versions().length;
+  }
+
+  function renderVersionControls() {
+    var vs = versions();
+    if (state.version !== 'all' && vs.indexOf(state.version) === -1) state.version = 'all';
+    var sel = $('vsel');
+    sel.textContent = '';
+    sel.append(h('option', { value: 'all', text: 'All versions' }));
+    vs.forEach(function (v) { sel.append(h('option', { value: v, text: v })); });
+    sel.value = state.version;
+    var dl = $('version-list');
+    dl.textContent = '';
+    vs.forEach(function (v) { dl.append(h('option', { value: v })); });
+  }
+
+  function emptyState(hasAny) {
+    if (!hasAny) {
+      return h('li', { class: 'empty' },
+        h('h3', { text: 'No codes shared yet' }),
+        h('p', { text: 'Paste a track code, enter the game version it was made on, and choose stable or dev. It appears here for everyone with the link.' }),
+        h('button', { class: 'btn ghost small', type: 'button', onclick: function () { openCompose(true); $('f-name').focus(); }, text: 'Share the first code' })
+      );
+    }
+    return h('li', { class: 'empty' },
+      h('h3', { text: 'Nothing matches' }),
+      h('p', { text: 'No shared code fits these filters.' }),
+      h('button', { class: 'btn ghost small', type: 'button', onclick: clearFilters, text: 'Clear filters' })
+    );
+  }
+
+  function card(t) {
+    var mine = state.myId && t.authorId === state.myId;
+    var canDelete = mine || state.canEdit;
+    var full = !!state.expanded[t.id];
+    var codeEl = h('p', { class: 'code' + (full ? ' full' : ''), id: 'code-' + t.id, text: t.code });
+    var date = t.createdAt ? new Date(t.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    var chanLabel = t.channel === 'dev' ? 'Dev release' : 'Stable';
+
+    var copyBtn = h('button', { class: 'btn small', type: 'button', text: 'Copy code', 'aria-label': 'Copy code for ' + t.name });
+    copyBtn.addEventListener('click', function () { copyCode(t.code, copyBtn); });
+
+    var toggleBtn = h('button', {
+      class: 'btn small plain', type: 'button', 'aria-expanded': full ? 'true' : 'false', 'aria-controls': 'code-' + t.id,
+      text: full ? 'Collapse' : 'Show full code'
+    });
+    toggleBtn.addEventListener('click', function () {
+      state.expanded[t.id] = !state.expanded[t.id];
+      renderList();
+    });
+
+    var actions = h('div', { class: 'actions' }, copyBtn, toggleBtn);
+    if (canDelete) {
+      var armed = state.pendingDelete === t.id;
+      var delBtn = h('button', {
+        class: 'btn small danger' + (armed ? ' confirm' : ''), type: 'button',
+        text: armed ? 'Confirm delete' : 'Delete', 'aria-label': (armed ? 'Confirm delete of ' : 'Delete ') + t.name
+      });
+      delBtn.addEventListener('click', function () { onDelete(t, delBtn); });
+      actions.append(delBtn);
+    }
+
+    return h('li', { class: 'card' },
+      h('div', { class: 'card-top' },
+        h('h3', { text: t.name }),
+        h('div', { class: 'tags' },
+          h('span', { class: 'pill ' + t.channel, text: chanLabel }),
+          h('span', { class: 'pill ver', text: 'v' + t.version })
+        )
+      ),
+      codeEl,
+      t.notes ? h('p', { class: 'notes', text: t.notes }) : null,
+      h('div', { class: 'card-foot' },
+        h('div', { class: 'meta' },
+          'by ', h('span', { 'data-author': t.authorId || '', text: t.authorId ? '…' : 'Someone' }),
+          date ? ' · ' + date : '', ' · ' + t.code.length.toLocaleString() + ' chars'
+        ),
+        actions
+      )
+    );
+  }
+
+  function fillNames(token) {
+    if (!state.user || !state.user.profiles) return;
+    var ids = [];
+    state.tracks.forEach(function (t) { if (t.authorId && ids.indexOf(t.authorId) === -1) ids.push(t.authorId); });
+    if (!ids.length) return;
+    state.user.profiles(ids).then(function (ps) {
+      if (token !== state.renderToken) return;
+      document.querySelectorAll('[data-author]').forEach(function (n) {
+        var p = ps[n.getAttribute('data-author')];
+        n.textContent = p && p.isMe ? 'you' : (p && p.name) || 'Someone';
+      });
+    }, function () { /* names stay as placeholders */ });
+  }
+
+  function renderList() {
+    var token = ++state.renderToken;
+    var list = $('list');
+    list.textContent = '';
+    if (!state.loaded) {
+      list.append(h('li', { class: 'empty' }, h('h3', { text: 'Loading shared codes' }), h('p', { text: 'Fetching the latest list.' })));
+      return;
+    }
+    if (!state.tracks.length) { list.append(emptyState(false)); return; }
+    var rows = visible();
+    if (!rows.length) { list.append(emptyState(true)); return; }
+    rows.forEach(function (t) { list.append(card(t)); });
+    fillNames(token);
+  }
+
+  function render() {
+    renderStats();
+    renderVersionControls();
+    renderList();
+  }
+
+  function clearFilters() {
+    state.channel = 'all'; state.version = 'all'; state.q = ''; state.sort = 'new';
+    $('q').value = ''; $('sort').value = 'new';
+    syncChips();
+    render();
+  }
+
+  function syncChips() {
+    document.querySelectorAll('[data-chan]').forEach(function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-chan') === state.channel ? 'true' : 'false');
+    });
+  }
+
+  function openCompose(open) {
+    var c = $('compose'), t = $('compose-toggle');
+    c.classList.toggle('open', open);
+    t.setAttribute('aria-expanded', open ? 'true' : 'false');
+    t.textContent = open ? 'Close' : 'Share a code';
+  }
+
+  function applyWriteState() {
+    var blocked = !state.db || state.canWrite === false;
+    ['f-name', 'f-code', 'f-version', 'f-notes', 'submit'].forEach(function (id) { $(id).disabled = blocked; });
+    document.querySelectorAll('input[name="channel"]').forEach(function (r) { r.disabled = blocked; });
+    $('submit-hint').textContent = !state.db ? 'Sign in to share.' : (state.canWrite === false ? (window.__auth && !state.myId ? 'Sign in above to share codes.' : 'View-only access: you can copy codes but not add them.') : '');
+  }
+
+  /* ---------- actions ---------- */
+  function setErr(id, msg, fieldId) {
+    $(id).textContent = msg || '';
+    if (fieldId) $(fieldId).setAttribute('aria-invalid', msg ? 'true' : 'false');
+  }
+
+  function onSubmit(e) {
+    e.preventDefault();
+    if (!state.db || state.canWrite === false || state.busy) return;
+    var name = $('f-name').value.trim();
+    var code = $('f-code').value.trim();
+    var version = $('f-version').value.trim();
+    var notes = $('f-notes').value.trim();
+    var channel = document.querySelector('input[name="channel"]:checked').value;
+
+    var bad = false;
+    if (!name) { setErr('e-name', 'Give the track a name.', 'f-name'); bad = true; } else setErr('e-name', '', 'f-name');
+    if (!code) { setErr('e-code', 'Paste the track code.', 'f-code'); bad = true; }
+    else if (code.length > MAX_CODE) { setErr('e-code', 'This code is over ' + MAX_CODE.toLocaleString() + ' characters, which is too long to store.', 'f-code'); bad = true; }
+    else setErr('e-code', '', 'f-code');
+    if (!version) { setErr('e-version', 'Enter the game version.', 'f-version'); bad = true; }
+    else if (!VER_RE.test(version)) { setErr('e-version', 'Use letters, numbers, dots, dashes or plus signs, up to ' + MAX_VER + ' characters.', 'f-version'); bad = true; }
+    else setErr('e-version', '', 'f-version');
+    if (bad) return;
+
+    var dupe = state.tracks.filter(function (t) { return t.code === code; })[0];
+    if (dupe) {
+      setErr('e-code', 'This code is already shared as "' + dupe.name + '".', 'f-code');
+      return;
+    }
+
+    state.busy = true;
+    $('submit').disabled = true;
+    $('submit').textContent = 'Sharing…';
+    state.db.collection('tracks').add({
+      name: name.slice(0, MAX_NAME), code: code, version: version, channel: channel,
+      notes: notes.slice(0, MAX_NOTES), authorId: state.myId || '', createdAt: Date.now()
+    }).then(function () {
+      store('pt-version', version);
+      store('pt-channel', channel);
+      $('f-name').value = ''; $('f-code').value = ''; $('f-notes').value = '';
+      $('code-count').textContent = '0 characters';
+      toast('Code shared');
+      openCompose(false);
+    }, function (err) {
+      var c = err && err.code;
+      var msg = 'Could not share the code. Try again in a moment.';
+      if (c === 'quota_exceeded') msg = 'The site is full. Ask the owner to remove old codes.';
+      else if (c === 'invalid_argument') { msg = 'This account can browse and copy codes but not share them.'; state.canWrite = false; applyWriteState(); }
+      else if (c === 'resource_exhausted') msg = 'Too many requests. Wait a few seconds and try again.';
+      setErr('e-code', msg, 'f-code');
+    }).then(function () {
+      state.busy = false;
+      $('submit').textContent = 'Share code';
+      applyWriteState();
+    });
+  }
+
+  function onDelete(t, btn) {
+    if (state.pendingDelete !== t.id) {
+      state.pendingDelete = t.id;
+      renderList();
+      setTimeout(function () { if (state.pendingDelete === t.id) { state.pendingDelete = null; renderList(); } }, 4000);
+      return;
+    }
+    state.pendingDelete = null;
+    btn.disabled = true;
+    state.db.doc('tracks/' + t.id).delete().then(function () {
+      toast('Code deleted');
+    }, function () {
+      toast('Could not delete that code.');
+      renderList();
+    });
+  }
+
+  /* ---------- wiring ---------- */
+  function wire() {
+    $('compose').addEventListener('submit', onSubmit);
+    $('compose-toggle').addEventListener('click', function () {
+      openCompose(!$('compose').classList.contains('open'));
+    });
+    $('f-code').addEventListener('input', function () {
+      var n = $('f-code').value.trim().length;
+      $('code-count').textContent = n.toLocaleString() + ' character' + (n === 1 ? '' : 's');
+    });
+    document.querySelectorAll('[data-chan]').forEach(function (b) {
+      b.addEventListener('click', function () { state.channel = b.getAttribute('data-chan'); syncChips(); renderList(); });
+    });
+    $('q').addEventListener('input', function () { state.q = $('q').value; renderList(); });
+    $('vsel').addEventListener('change', function () { state.version = $('vsel').value; renderList(); });
+    $('sort').addEventListener('change', function () { state.sort = $('sort').value; renderList(); });
+
+    var v = recall('pt-version'), c = recall('pt-channel');
+    if (v) $('f-version').value = v;
+    if (c === 'dev') document.querySelector('input[name="channel"][value="dev"]').checked = true;
+  }
+
+  function setupAuth() {
+    var auth = window.__auth;
+    if (!auth) return;
+    var form = $('auth-form'), who = $('auth-who'), msg = $('auth-msg');
+    auth.user().then(function (u) {
+      if (u) {
+        who.hidden = false;
+        $('auth-label').textContent = 'Signed in' + (u.email ? ' as ' + u.email : '') + '.';
+      } else {
+        form.hidden = false;
+      }
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var email = $('auth-email').value.trim(), name = $('auth-name').value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { msg.textContent = 'Enter a valid email address.'; return; }
+      if (!name) { msg.textContent = 'Pick a display name so people know who shared a code.'; return; }
+      $('auth-submit').disabled = true;
+      msg.textContent = 'Sending…';
+      auth.signIn(email, name).then(function () {
+        msg.textContent = 'Check your email and open the link to finish signing in.';
+      }, function (err) {
+        msg.textContent = 'Could not send the link' + (err && err.message ? ': ' + err.message : '.');
+      }).then(function () { $('auth-submit').disabled = false; });
+    });
+    $('auth-out').addEventListener('click', function () {
+      auth.signOut().then(function () { location.reload(); });
+    });
+  }
+
+  function start() {
+    wire();
+    setupAuth();
+    render();
+    var c = window.claude;
+    if (!c || !c.use) {
+      state.loaded = true;
+      setBanner(window.__backendError || 'This page stores shared codes through Claude. Open it from its Claude link to browse and share.');
+      render(); applyWriteState();
+      return;
+    }
+    Promise.all([c.use('db'), c.use('user')]).then(function (r) {
+      state.db = r[0]; state.user = r[1];
+      var chain = Promise.resolve();
+      if (state.user) {
+        chain = Promise.all([state.user.me(), state.user.canEdit(), state.user.can('data.write')]).then(function (u) {
+          state.myId = u[0].id; state.canEdit = !!u[1]; state.canWrite = u[2];
+        });
+      }
+      return chain;
+    }).then(function () {
+      applyWriteState();
+      if (!state.db) {
+        state.loaded = true;
+        setBanner('Sign in to Claude to browse and share codes.');
+        render();
+        return;
+      }
+      state.db.collection('tracks').orderBy('createdAt', 'desc').limit(500).onSnapshot(function (snap) {
+        state.tracks = snap.docs.map(fromDoc);
+        state.loaded = true;
+        setBanner('');
+        render();
+      }, function (err) {
+        state.loaded = true;
+        setBanner(err && err.code === 'revoked' ? 'Access to this page changed. Reload to continue.' : 'Could not load the shared codes. Reload to try again.');
+        render();
+      });
+    });
+  }
+
+  start();
+})();
+</script>
