@@ -1,0 +1,10 @@
+{
+  "name": "polytrack-codes",
+  "private": true,
+  "scripts": {
+    "test": "node tests/api.mjs && node tests/run.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
+  }
+}
