@@ -37,6 +37,12 @@
       body: r.body, createdAt: num(r.created_at) };
   }
 
+  var ANN_STYLES = ['info', 'success', 'warn', 'party', 'loud'];
+  function announcementOf(r) {
+    return { id: r.id, title: r.title, body: r.body || '', style: ANN_STYLES.indexOf(r.style) !== -1 ? r.style : 'info',
+      authorId: r.author_id, createdAt: num(r.created_at), expiresAt: r.expires_at === null || r.expires_at === undefined ? null : num(r.expires_at) };
+  }
+
   // Postgres / PostgREST errors -> the few codes the page handles.
   function mapError(e) {
     var c = e && e.code;
@@ -165,6 +171,18 @@
         }).then(function () {});
       },
 
+      // Announcements: everyone reads, only admins write (enforced by the database).
+      listAnnouncements: function () {
+        return run(client.from('announcements').select('*').order('created_at', { ascending: true }).limit(50))
+          .then(function (rows) { return (rows || []).map(announcementOf); });
+      },
+      createAnnouncement: function (v) {
+        return signedIn().then(function () {
+          return run(client.from('announcements').insert({ title: v.title, body: v.body || '', style: v.style || 'loud', expires_at: v.expiresAt || null }).select('id').single());
+        }).then(function (r) { return { id: r.id }; });
+      },
+      deleteAnnouncement: function (id) { return run(client.from('announcements').delete().eq('id', id)).then(function () {}); },
+
       profiles: function (ids) {
         ids = [].concat(ids);
         return ready.then(function () {
@@ -177,12 +195,12 @@
         });
       },
 
-      // Calls fn whenever any track, release or comment changes. Returns an unsubscribe function.
+      // Calls fn whenever any track, release, comment, rating or announcement changes. Returns an unsubscribe function.
       subscribe: function (fn) {
         var chan = null;
         try {
           chan = client.channel('polytrack-feed');
-          ['tracks', 'track_releases', 'comments', 'ratings'].forEach(function (t) {
+          ['tracks', 'track_releases', 'comments', 'ratings', 'announcements'].forEach(function (t) {
             chan = chan.on('postgres_changes', { event: '*', schema: 'public', table: t }, fn);
           });
           chan.subscribe();
@@ -227,5 +245,5 @@
   }
 
   return { create: create, install: install, mapError: mapError,
-    trackOf: trackOf, summaryOf: summaryOf, releaseOf: releaseOf, commentOf: commentOf };
+    trackOf: trackOf, summaryOf: summaryOf, releaseOf: releaseOf, commentOf: commentOf, announcementOf: announcementOf };
 });

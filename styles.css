@@ -274,3 +274,63 @@ fieldset { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
 .rate-mine { margin-top: 16px; display: grid; gap: 8px; }
 .rate-mine .lab { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-2); }
 .card-rate { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ---------- Popups (popups.js) ---------- */
+.popup { border: 0; padding: 0; background: transparent; color: var(--ink); width: min(520px, calc(100vw - 32px)); max-width: none; overflow: visible; }
+.popup::backdrop { background: rgba(10, 12, 14, 0.74); }
+.popup-card {
+  max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; overflow-wrap: anywhere;
+  position: relative; background: var(--surface); border: 3px solid var(--ink); padding: 32px 22px 18px;
+  box-shadow: 8px 8px 0 var(--accent); animation: popup-in .22s ease-out;
+}
+.popup-card::before { /* kerb stripe along the top edge */
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 10px;
+  background: repeating-linear-gradient(90deg, var(--accent) 0 18px, var(--surface) 18px 36px);
+}
+.popup-badge {
+  display: inline-block; margin-bottom: 8px; padding: 2px 9px; background: var(--ink); color: var(--bg);
+  font-family: var(--font-mono); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.popup-title { font-family: var(--font-display); font-weight: 700; font-size: 2rem; line-height: 1.05; text-transform: uppercase; overflow-wrap: anywhere; }
+.popup-body { margin: 10px 0 16px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 50vh; overflow: auto; }
+.popup-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 16px; }
+.popup-body + .popup-actions { margin-top: 0; }
+.popup-x {
+  position: absolute; top: 16px; right: 8px; width: 32px; height: 32px; border: 0; background: transparent;
+  font-size: 1.6rem; line-height: 1; cursor: pointer; color: var(--ink);
+}
+.popup-info .popup-card { box-shadow: 8px 8px 0 var(--focus); }
+.popup-success .popup-card { box-shadow: 8px 8px 0 var(--stable); }
+.popup-success .popup-badge { background: var(--stable); color: var(--bg); }
+.popup-warn .popup-card { box-shadow: 8px 8px 0 var(--dev); border-color: var(--dev); }
+.popup-warn .popup-badge { background: var(--dev); color: var(--bg); }
+.popup-loud .popup-card { border-color: var(--accent); box-shadow: 0 0 0 4px var(--ink), 10px 10px 0 4px var(--accent); animation: popup-in .22s ease-out, popup-shake .5s .22s 2; }
+.popup-loud .popup-card::before { height: 16px; animation: popup-stripe .6s linear infinite; background-size: 36px 100%; }
+.popup-loud .popup-badge { background: var(--accent); color: var(--accent-ink); animation: popup-blink 1s steps(2, start) infinite; }
+.popup-loud .popup-title { font-size: 2.6rem; }
+.popup-party .popup-card { border-color: var(--accent); box-shadow: 8px 8px 0 var(--d3); }
+.popup-party .popup-badge { background: var(--d3); color: var(--bg); }
+.popup-party .popup-title { font-size: 2.4rem; }
+.confetti { position: absolute; inset: -40px 0 0; pointer-events: none; overflow: hidden; }
+.confetti span {
+  position: absolute; top: 0; left: var(--x); width: 8px; height: 14px; background: hsl(var(--h) 85% 55%);
+  animation: confetti-fall var(--t) linear var(--d) infinite; opacity: 0;
+}
+@keyframes popup-in { from { transform: scale(.82); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes popup-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-9px) rotate(-1deg); } 40% { transform: translateX(9px) rotate(1deg); } 60% { transform: translateX(-6px); } 80% { transform: translateX(6px); } }
+@keyframes popup-stripe { to { background-position: 36px 0; } }
+@keyframes popup-blink { 50% { opacity: .45; } }
+@keyframes confetti-fall { 0% { transform: translateY(0) rotate(0); opacity: 1; } 100% { transform: translateY(520px) rotate(540deg); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .popup-card, .popup-card::before, .popup-badge { animation: none !important; }
+}
+
+/* ---------- Admin: announcements panel ---------- */
+.ann-admin { margin: 0 0 20px; }
+.ann-admin .form { max-width: 720px; }
+.ann-row { display: flex; flex-wrap: wrap; gap: 10px 12px; }
+.ann-row .field { flex: 1 1 220px; }
+.ann-admin select { width: 100%; padding: 9px 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 2px; }
+.ann-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; max-width: 720px; }
+.ann-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); }
+.ann-list .ann-title { font-weight: 600; flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }

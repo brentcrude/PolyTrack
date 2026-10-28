@@ -10,7 +10,7 @@
 (function () {
   'use strict';
 
-  const MAX = { name: 60, desc: 500, notes: 1000, ver: 24, comment: 2000, code: 200000 };
+  const MAX = { name: 60, desc: 500, notes: 1000, ver: 24, comment: 2000, code: 200000, annTitle: 80, annBody: 1000 };
   const VER_RE = /^[A-Za-z0-9][A-Za-z0-9._+\- ]{0,23}$/;
   const $ = (id) => document.getElementById(id);
 
@@ -18,7 +18,7 @@
     api: null, auth: null, me: { id: null, isAdmin: false },
     view: null, nav: 0, firstRoute: true,
     home: { tracks: [], loaded: false, channel: 'all', version: 'all', diff: 'all', recent: 'any', q: '', sort: 'updated' },
-    track: null, refresh: null,
+    track: null, refresh: null, announcements: [], annRender: null,
     pending: null, pendingTimer: null, feedTimer: null, toastTimer: null
   };
 
@@ -127,13 +127,8 @@
     };
   }
 
-  function toast(msg) {
-    const t = $('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    clearTimeout(S.toastTimer);
-    S.toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
-  }
+  // All popups (toasts, dialogs, announcements) live in popups.js; this keeps the short name used throughout the page.
+  function toast(msg) { if (window.Popups) window.Popups.toast(msg); }
 
   function setBanner(msg) {
     const b = $('banner');
@@ -299,6 +294,102 @@
     return 'Could not publish the release. Try again in a moment.';
   }
 
+  /* ---------- announcements ---------- */
+  // Shows every active announcement this browser has not seen yet (popups.js remembers what was closed).
+  async function checkAnnouncements() {
+    if (!S.api || !S.api.listAnnouncements || !window.Popups) return;
+    let rows;
+    try { rows = await S.api.listAnnouncements(); } catch (e) { return; } // table missing or offline: just no popups
+    S.announcements = rows;
+    if (S.annRender) S.annRender();
+    const now = Date.now();
+    rows.filter((a) => !a.expiresAt || a.expiresAt > now).forEach((a) => { window.Popups.announce(a); });
+  }
+
+  const ANN_STYLES = [
+    ['loud', 'Obnoxious: shakes, flashes, must be clicked away'], ['party', 'Party: confetti'],
+    ['warn', 'Warning'], ['success', 'Good news'], ['info', 'Plain notice']
+  ];
+  const ANN_EXPIRY = [['', 'Never'], ['3600000', 'In 1 hour'], ['86400000', 'In 1 day'], ['604800000', 'In 1 week']];
+
+  // The admin-only "Announce" panel on the home page: write a popup, preview it, send it to everyone.
+  function announcePanel() {
+    const box = h('section', { class: 'ann-admin', id: 'ann-box', 'aria-label': 'Announcements', hidden: true });
+    const btn = h('button', { class: 'btn small plain', type: 'button', id: 'ann-btn', 'aria-expanded': 'false', text: 'Announce' });
+    const title = h('input', { type: 'text', id: 'a-title', maxlength: MAX.annTitle, autocomplete: 'off', placeholder: 'Headline' });
+    const eTitle = h('p', { class: 'err', role: 'alert' });
+    const body = h('textarea', { id: 'a-body', class: 'short', maxlength: MAX.annBody, placeholder: 'The details (optional)' });
+    const style = h('select', { id: 'a-style' }, ANN_STYLES.map((o) => h('option', { value: o[0], text: o[1] })));
+    const expires = h('select', { id: 'a-expires' }, ANN_EXPIRY.map((o) => h('option', { value: o[0], text: o[1] })));
+    const preview = h('button', { class: 'btn plain', type: 'button', id: 'a-preview', text: 'Preview' });
+    const send = h('button', { class: 'btn', type: 'submit', id: 'a-send', text: 'Send to everyone' });
+    const list = h('ul', { class: 'ann-list', id: 'ann-list' });
+
+    btn.addEventListener('click', () => {
+      box.hidden = !box.hidden;
+      btn.setAttribute('aria-expanded', String(!box.hidden));
+      if (!box.hidden) title.focus();
+    });
+
+    const read = () => ({ title: title.value.trim(), body: body.value.trim(), style: style.value });
+    const valid = () => {
+      if (!title.value.trim()) { setErr(eTitle, title, 'Write a headline.'); return false; }
+      setErr(eTitle, title, ''); return true;
+    };
+    preview.addEventListener('click', () => {
+      if (!valid() || !window.Popups) return;
+      const v = read();
+      window.Popups.show({ title: v.title, body: v.body, style: v.style, badge: 'Preview' });
+    });
+
+    const form = h('form', { class: 'form', novalidate: true },
+      h('h3', { class: 'form-title', text: 'New announcement' }),
+      h('p', { class: 'hint', text: 'Everyone sees it as a popup the next time they open the site (right away if they are already here). Each person sees it once.' }),
+      field('Headline', title, eTitle),
+      field('Message', body),
+      h('div', { class: 'ann-row' }, field('Style', style), field('Disappears', expires)),
+      h('div', { class: 'submit-row' }, send, preview));
+    let busy = false;
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (busy || !valid()) return;
+      busy = true; send.disabled = true;
+      const v = read();
+      try {
+        await S.api.createAnnouncement({ title: v.title.slice(0, MAX.annTitle), body: v.body.slice(0, MAX.annBody), style: v.style,
+          expiresAt: expires.value ? Date.now() + Number(expires.value) : null });
+        title.value = ''; body.value = '';
+        toast('Announcement sent');
+        await checkAnnouncements();
+      } catch (err) {
+        setErr(eTitle, title, err && err.code === 'forbidden'
+          ? 'Only admins can announce. Add yourself to the admins table (see SETUP.md).'
+          : 'Could not send. Have you run supabase/update-announcements.sql?');
+      }
+      busy = false; send.disabled = false;
+    });
+
+    function render() {
+      list.textContent = '';
+      const now = Date.now();
+      S.announcements.slice().reverse().forEach((a) => {
+        const live = !a.expiresAt || a.expiresAt > now;
+        list.append(h('li', {},
+          h('span', { class: 'pill ver', text: a.style }),
+          h('span', { class: 'ann-title', text: a.title }),
+          h('span', { class: 'meta', text: live ? (a.expiresAt ? 'until ' + fmtDate(a.expiresAt) : 'no end date') : 'expired ' + fmtDate(a.expiresAt) }),
+          deleteButton('ann:' + a.id, 'announcement', render, async () => {
+            try { await S.api.deleteAnnouncement(a.id); toast('Announcement removed'); await checkAnnouncements(); }
+            catch (err) { toast('Could not remove that announcement.'); render(); }
+          })));
+      });
+      if (!S.announcements.length) list.append(h('li', { class: 'hint', text: 'No announcements yet.' }));
+    }
+    box.append(form, h('h3', { class: 'section-title', text: 'Sent announcements' }), list);
+    render();
+    return { btn, box, render };
+  }
+
   /* ---------- home ---------- */
   function homeVersions() {
     const seen = {};
@@ -351,6 +442,8 @@
   function showHome() {
     const H = S.home, v = S.view;
     const title = h('h2', { class: 'page-title', text: 'Tracks' });
+    const ann = S.me.isAdmin ? announcePanel() : null;
+    S.annRender = ann ? ann.render : null;
     const stats = h('p', { class: 'stats', id: 'h-stats' });
     const list = h('ul', { class: 'tracks', id: 'tracks' });
     const labels = { all: 'All', stable: 'Stable', dev: 'Dev' };
@@ -425,7 +518,8 @@
     }
 
     v.append(
-      h('div', { class: 'head-row' }, title, h('a', { class: 'btn small', href: '#/new', text: 'New track' })),
+      h('div', { class: 'head-row' }, title, h('div', { class: 'actions' }, ann ? ann.btn : null, h('a', { class: 'btn small', href: '#/new', text: 'New track' }))),
+      ann ? ann.box : null,
       stats,
       h('div', { class: 'tools' }, h('div', { class: 'chan', role: 'group', 'aria-label': 'Release channel filter' }, chips), q, vsel, dsel, rsel, sort),
       list
@@ -983,7 +1077,7 @@
     const rt = parseHash();
     if (rt.name === 'track' && S.track && S.track.id === rt.id && S.view.contains(S.track.root)) { S.track.onRoute(rt.rid); return; }
     const token = ++S.nav;
-    S.refresh = null; S.track = null; S.pending = null;
+    S.refresh = null; S.track = null; S.pending = null; S.annRender = null;
     document.title = 'Polytrack Codes';
     S.view.textContent = '';
     setBanner('');
@@ -1051,9 +1145,10 @@
     window.addEventListener('hashchange', route);
     S.api.subscribe(() => {
       clearTimeout(S.feedTimer);
-      S.feedTimer = setTimeout(() => { if (S.refresh) S.refresh(); }, 300);
+      S.feedTimer = setTimeout(() => { if (S.refresh) S.refresh(); checkAnnouncements(); }, 300);
     });
     route();
+    checkAnnouncements();
   }
 
   start();

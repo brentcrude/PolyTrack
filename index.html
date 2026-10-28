@@ -38,6 +38,7 @@
 /* Back the page with Supabase unless something (a test) already provided window.polytrack. */
 try { if (window.PolytrackApi) PolytrackApi.install(window); } catch (e) { window.__backendError = 'Could not start the backend.'; }
 </script>
+<script src="popups.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
