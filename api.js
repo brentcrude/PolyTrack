@@ -13,14 +13,17 @@
 
   var num = function (v) { return Number(v) || 0; };
   function trackOf(r) {
+    var d = Number(r.difficulty);
     return { id: r.id, name: r.name, description: r.description || '', authorId: r.author_id,
-      createdAt: num(r.created_at), updatedAt: num(r.updated_at) };
+      difficulty: d >= 1 && d <= 5 ? d : null, createdAt: num(r.created_at), updatedAt: num(r.updated_at) };
   }
   function summaryOf(r) {
     var t = trackOf(r);
     t.releaseCount = num(r.release_count); t.commentCount = num(r.comment_count);
     t.latestStable = r.latest_stable || null; t.latestDev = r.latest_dev || null;
     t.gameVersions = r.game_versions || [];
+    t.ratingAvg = r.rating_avg === null || r.rating_avg === undefined ? null : num(r.rating_avg);
+    t.ratingCount = num(r.rating_count);
     return t;
   }
   function releaseOf(r) {
@@ -46,7 +49,7 @@
   }
 
   var RELEASE_LIST_COLS = 'id,track_id,game_version,channel,notes,code_length,author_id,created_at';
-  var TRACK_COLS = 'id,name,description,author_id,created_at,updated_at';
+  var TRACK_COLS = 'id,name,description,difficulty,author_id,created_at,updated_at';
 
   function create(client) {
     var session = null, adminCache = null;
@@ -95,12 +98,12 @@
       },
       createTrack: function (v) {
         return signedIn().then(function () {
-          return run(client.from('tracks').insert({ name: v.name, description: v.description || '' }).select('id').single());
+          return run(client.from('tracks').insert({ name: v.name, description: v.description || '', difficulty: v.difficulty || null }).select('id').single());
         }).then(function (r) { return { id: r.id }; });
       },
       updateTrack: function (id, v) {
         return signedIn().then(function () {
-          return run(client.from('tracks').update({ name: v.name, description: v.description || '' }).eq('id', id));
+          return run(client.from('tracks').update({ name: v.name, description: v.description || '', difficulty: v.difficulty || null }).eq('id', id));
         }).then(function () {});
       },
       deleteTrack: function (id) { return run(client.from('tracks').delete().eq('id', id)).then(function () {}); },
@@ -134,6 +137,34 @@
       },
       deleteComment: function (id) { return run(client.from('comments').delete().eq('id', id)).then(function () {}); },
 
+      // Scores only (1 to 5), one per person, so the page can draw the distribution and find your own.
+      listRatings: function (trackId) {
+        return orMissing(run(client.from('ratings').select('user_id,score').eq('track_id', trackId)))
+          .then(function (rows) { return (rows || []).map(function (r) { return { userId: r.user_id, score: num(r.score) }; }); });
+      },
+      // Sets (or changes) the signed-in person's rating for a track. Update first, then insert if there was no
+      // row yet. (A one-call upsert would also rewrite track_id/user_id, which the column grants rightly forbid.)
+      rateTrack: function (trackId, score) {
+        var insert = function () {
+          return run(client.from('ratings').insert({ track_id: trackId, score: score }));
+        };
+        return signedIn().then(function () {
+          return run(client.from('ratings').update({ score: score }).eq('track_id', trackId).eq('user_id', uid()).select('track_id'));
+        }).then(function (rows) {
+          if (rows && rows.length) return;
+          return insert().then(null, function (e) {
+            // Two tabs raced to create the first rating: the row exists now, so just update it.
+            if (e && e.code !== 'duplicate') return Promise.reject(e);
+            return run(client.from('ratings').update({ score: score }).eq('track_id', trackId).eq('user_id', uid()));
+          });
+        }).then(function () {});
+      },
+      clearRating: function (trackId) {
+        return signedIn().then(function () {
+          return run(client.from('ratings').delete().eq('track_id', trackId).eq('user_id', uid()));
+        }).then(function () {});
+      },
+
       profiles: function (ids) {
         ids = [].concat(ids);
         return ready.then(function () {
@@ -151,7 +182,7 @@
         var chan = null;
         try {
           chan = client.channel('polytrack-feed');
-          ['tracks', 'track_releases', 'comments'].forEach(function (t) {
+          ['tracks', 'track_releases', 'comments', 'ratings'].forEach(function (t) {
             chan = chan.on('postgres_changes', { event: '*', schema: 'public', table: t }, fn);
           });
           chan.subscribe();

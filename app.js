@@ -17,7 +17,7 @@
   const S = {
     api: null, auth: null, me: { id: null, isAdmin: false },
     view: null, nav: 0, firstRoute: true,
-    home: { tracks: [], loaded: false, channel: 'all', version: 'all', q: '', sort: 'updated' },
+    home: { tracks: [], loaded: false, channel: 'all', version: 'all', diff: 'all', recent: 'any', q: '', sort: 'updated' },
     track: null, refresh: null,
     pending: null, pendingTimer: null, feedTimer: null, toastTimer: null
   };
@@ -57,6 +57,75 @@
   const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
   const fmtDate = (ms) => (ms ? new Date(ms).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '');
   const relLabel = (r) => 'v' + r.gameVersion + ' ' + channelLabel(r.channel);
+
+  // Difficulty (creator's call) and rating (everyone else's): scores 1-5, where 1-4 are checkpoints and 5 is the finish line.
+  const DIFFS = [null, 'Easy', 'Medium', 'Hard', 'Expert', 'Extreme'];
+  const RATE_WORDS = [null, 'Rough', 'Okay', 'Good', 'Great', 'Flawless'];
+  const RECENT = { any: 0, '1': 864e5, '7': 7 * 864e5, '30': 30 * 864e5 };
+  const rateName = (i) => (i === 5 ? 'Finish line' : 'Checkpoint ' + i) + ', ' + RATE_WORDS[i];
+
+  function diffPill(d, id) {
+    return d ? h('span', { class: 'pill diff d' + d, id, text: DIFFS[d] }) : h('span', { class: 'pill plain', id, text: 'Difficulty not set' });
+  }
+
+  // Four round checkpoints and a chequered finish flag. Read-only by default (value 0-5);
+  // with interactive:true it is a radio group that calls onPick(score) (onPick(0) when the current score is tapped again).
+  function checkpointBar(o) {
+    const value = o.value || 0;
+    const wrap = h('span', Object.assign({ class: 'cpbar' + (o.small ? ' small' : '') + (o.interactive ? ' live' : '') },
+      o.interactive ? { role: 'radiogroup', 'aria-label': o.label || 'Your rating' } : { role: 'img', 'aria-label': o.label || '' }));
+    const nodes = [];
+    for (let i = 1; i <= 5; i++) {
+      const cls = 'cp' + (i === 5 ? ' flag' : '') + (i <= value ? ' on' : '');
+      const n = o.interactive
+        ? h('button', { class: cls, type: 'button', role: 'radio', 'data-score': i, 'aria-checked': String(i === value), 'aria-label': rateName(i),
+            title: rateName(i), tabindex: (value ? i === value : i === 1) ? '0' : '-1' })
+        : h('span', { class: cls, 'aria-hidden': 'true' });
+      nodes.push(n);
+      wrap.append(n);
+    }
+    if (o.interactive) {
+      nodes.forEach((n, idx) => {
+        const i = idx + 1;
+        n.addEventListener('click', () => o.onPick(i === value ? 0 : i));
+        n.addEventListener('pointerenter', () => nodes.forEach((m, j) => m.classList.toggle('pv', j < i)));
+        n.addEventListener('keydown', (e) => {
+          const to = { ArrowRight: idx + 1, ArrowUp: idx + 1, ArrowLeft: idx - 1, ArrowDown: idx - 1, Home: 0, End: 4 }[e.key];
+          if (to === undefined) return;
+          e.preventDefault();
+          const next = nodes[Math.max(0, Math.min(4, to))];
+          nodes.forEach((m) => m.setAttribute('tabindex', m === next ? '0' : '-1'));
+          next.focus();
+        });
+      });
+      wrap.addEventListener('pointerleave', () => nodes.forEach((m) => m.classList.remove('pv')));
+    }
+    return wrap;
+  }
+
+  const ratingText = (avg, n) => (n ? avg.toFixed(1) + ' out of 5, ' + plural(n, 'rating') : 'No ratings yet');
+
+  // Difficulty radio group (Easy to Extreme). initial may be null.
+  function difficultyField(idp, initial) {
+    const err = h('p', { class: 'err', role: 'alert' });
+    const seg = h('div', { class: 'seg seg5' });
+    for (let i = 1; i <= 5; i++) {
+      const input = h('input', { type: 'radio', name: idp + '-diff', value: String(i), id: idp + '-diff' + i });
+      if (initial === i) input.checked = true;
+      seg.append(h('label', {}, input, h('span', { class: 's-d' + i, text: DIFFS[i] })));
+    }
+    const el = h('fieldset', { class: 'diff-field' },
+      h('legend', { class: 'lab', text: 'Difficulty' }), seg,
+      h('p', { class: 'hint', text: 'How hard is this track to finish? You can change it later.' }), err);
+    return {
+      el,
+      read() { const c = seg.querySelector('input:checked'); return c ? Number(c.value) : null; },
+      validate(required) {
+        if (required && !this.read()) { err.textContent = 'Choose how hard the track is.'; return false; }
+        err.textContent = ''; return true;
+      }
+    };
+  }
 
   function toast(msg) {
     const t = $('toast');
@@ -237,12 +306,17 @@
     return Object.keys(seen).sort((a, b) => naturalCompare(b, a));
   }
 
+  // "Top rated" ranks by a smoothed average so one lone 5 does not beat a track with many good ratings; unrated tracks last.
+  const smoothed = (t) => (t.ratingCount ? (t.ratingAvg * t.ratingCount + 3 * 2) / (t.ratingCount + 2) : -1);
+
   function visibleTracks() {
     const H = S.home, q = H.q.trim().toLowerCase();
     const out = H.tracks.filter((t) => {
       if (H.channel === 'stable' && !t.latestStable) return false;
       if (H.channel === 'dev' && !t.latestDev) return false;
       if (H.version !== 'all' && t.gameVersions.indexOf(H.version) === -1) return false;
+      if (H.diff !== 'all' && String(t.difficulty) !== H.diff) return false;
+      if (RECENT[H.recent] && t.updatedAt < Date.now() - RECENT[H.recent]) return false;
       if (q && (t.name + ' ' + t.description).toLowerCase().indexOf(q) === -1) return false;
       return true;
     });
@@ -250,6 +324,8 @@
       if (H.sort === 'created') return b.createdAt - a.createdAt;
       if (H.sort === 'name') return a.name.localeCompare(b.name);
       if (H.sort === 'releases') return b.releaseCount - a.releaseCount || b.updatedAt - a.updatedAt;
+      if (H.sort === 'rating') return smoothed(b) - smoothed(a) || b.ratingCount - a.ratingCount || b.updatedAt - a.updatedAt;
+      if (H.sort === 'hardest') return (b.difficulty || 0) - (a.difficulty || 0) || b.updatedAt - a.updatedAt;
       return b.updatedAt - a.updatedAt;
     });
     return out;
@@ -257,6 +333,7 @@
 
   function trackCard(t) {
     const tags = h('div', { class: 'tags' });
+    if (t.difficulty) tags.append(diffPill(t.difficulty));
     if (t.latestStable) tags.append(h('span', { class: 'pill stable', text: 'Stable v' + t.latestStable }));
     if (t.latestDev) tags.append(h('span', { class: 'pill dev', text: 'Dev v' + t.latestDev }));
     if (!t.latestStable && !t.latestDev) tags.append(h('span', { class: 'pill plain', text: 'No releases yet' }));
@@ -264,6 +341,9 @@
       h('h3', {}, h('a', { href: '#/t/' + encodeURIComponent(t.id), text: t.name })),
       t.description ? h('p', { class: 'desc', text: t.description }) : h('p', { class: 'desc none', text: 'No description.' }),
       tags,
+      h('div', { class: 'card-rate' },
+        checkpointBar({ small: true, value: Math.round(t.ratingAvg || 0), label: ratingText(t.ratingAvg || 0, t.ratingCount) }),
+        h('span', { class: 'meta', text: t.ratingCount ? t.ratingAvg.toFixed(1) + ' (' + t.ratingCount + ')' : 'No ratings yet' })),
       h('div', { class: 'meta' }, 'by ', authorSpan(t.authorId), ' · ' + plural(t.releaseCount, 'release') + ' · ' + plural(t.commentCount, 'comment') + ' · updated ' + fmtDate(t.updatedAt))
     );
   }
@@ -286,11 +366,22 @@
     q.addEventListener('input', () => { H.q = q.value; renderTracks(); });
     const vsel = h('select', { id: 'h-version', 'aria-label': 'Filter by game version' });
     vsel.addEventListener('change', () => { H.version = vsel.value; renderTracks(); });
+    const dsel = h('select', { id: 'h-diff', 'aria-label': 'Filter by difficulty' }, h('option', { value: 'all', text: 'All difficulties' }),
+      [1, 2, 3, 4, 5].map((i) => h('option', { value: String(i), text: DIFFS[i] })));
+    dsel.value = H.diff;
+    dsel.addEventListener('change', () => { H.diff = dsel.value; renderTracks(); });
+    const rsel = h('select', { id: 'h-recent', 'aria-label': 'Filter by last update' },
+      h('option', { value: 'any', text: 'Any time' }), h('option', { value: '1', text: 'Updated today' }),
+      h('option', { value: '7', text: 'Updated this week' }), h('option', { value: '30', text: 'Updated this month' }));
+    rsel.value = H.recent;
+    rsel.addEventListener('change', () => { H.recent = rsel.value; renderTracks(); });
     const sort = h('select', { id: 'h-sort', 'aria-label': 'Sort order' },
       h('option', { value: 'updated', text: 'Recently updated' }),
       h('option', { value: 'created', text: 'Newest tracks' }),
       h('option', { value: 'name', text: 'Name A to Z' }),
-      h('option', { value: 'releases', text: 'Most releases' }));
+      h('option', { value: 'releases', text: 'Most releases' }),
+      h('option', { value: 'rating', text: 'Top rated' }),
+      h('option', { value: 'hardest', text: 'Hardest first' }));
     sort.value = H.sort;
     sort.addEventListener('change', () => { H.sort = sort.value; renderTracks(); });
 
@@ -304,8 +395,8 @@
     }
 
     function clearFilters() {
-      H.channel = 'all'; H.version = 'all'; H.q = ''; H.sort = 'updated';
-      q.value = ''; sort.value = 'updated';
+      H.channel = 'all'; H.version = 'all'; H.diff = 'all'; H.recent = 'any'; H.q = ''; H.sort = 'updated';
+      q.value = ''; sort.value = 'updated'; dsel.value = 'all'; rsel.value = 'any';
       syncChips(); renderVersionSelect(); renderTracks();
     }
 
@@ -336,7 +427,7 @@
     v.append(
       h('div', { class: 'head-row' }, title, h('a', { class: 'btn small', href: '#/new', text: 'New track' })),
       stats,
-      h('div', { class: 'tools' }, h('div', { class: 'chan', role: 'group', 'aria-label': 'Release channel filter' }, chips), q, vsel, sort),
+      h('div', { class: 'tools' }, h('div', { class: 'chan', role: 'group', 'aria-label': 'Release channel filter' }, chips), q, vsel, dsel, rsel, sort),
       list
     );
     renderVersionSelect();
@@ -374,12 +465,14 @@
 
     const name = h('input', { type: 'text', id: 'n-name', maxlength: MAX.name, autocomplete: 'off', placeholder: 'Name your track' });
     const eName = h('p', { class: 'err', role: 'alert' });
-    const desc = h('textarea', { id: 'n-desc', class: 'short', maxlength: MAX.desc, placeholder: 'What is this track like? Length, difficulty, theme (optional)' });
+    const desc = h('textarea', { id: 'n-desc', class: 'short', maxlength: MAX.desc, placeholder: 'What is this track like? Length, theme, tips (optional)' });
+    const diff = difficultyField('n', null);
     const rel = releaseFields('n', []);
     const submit = h('button', { class: 'btn', type: 'submit', id: 'n-submit', text: 'Create track' });
     const form = h('form', { class: 'form', novalidate: true },
       field('Track name', name, eName),
       field('Description', desc),
+      diff.el,
       h('h3', { class: 'form-title', text: 'First release' }),
       rel.el,
       h('div', { class: 'submit-row' }, submit)
@@ -393,12 +486,13 @@
       const nm = name.value.trim();
       let ok = true;
       if (!nm) { setErr(eName, name, 'Give the track a name.'); ok = false; } else setErr(eName, name, '');
+      if (!diff.validate(true)) ok = false;
       if (!rel.validate()) ok = false;
       if (!ok) return;
       busy = true; submit.disabled = true; submit.textContent = 'Creating…';
       let created = null;
       try {
-        created = await S.api.createTrack({ name: nm.slice(0, MAX.name), description: desc.value.trim().slice(0, MAX.desc) });
+        created = await S.api.createTrack({ name: nm.slice(0, MAX.name), description: desc.value.trim().slice(0, MAX.desc), difficulty: diff.read() });
         await S.api.addRelease(created.id, rel.read());
         rel.remember();
         toast('Track created');
@@ -446,7 +540,7 @@
   function buildTrack(track, rt, token) {
     const root = h('div', { class: 'track-page' });
     const T = S.track = {
-      id: track.id, root, track, releases: [], comments: [], loaded: false,
+      id: track.id, root, track, releases: [], comments: [], ratings: [], loaded: false,
       selectedId: null, wanted: rt.rid, wantedMissing: false, chan: 'all',
       code: {}, loadingCode: null, expanded: false
     };
@@ -458,6 +552,7 @@
     const head = h('section', { class: 'thead', 'aria-label': 'Track' });
     const editBox = h('div', { class: 'panel-box', hidden: true });
     const addBox = h('div', { class: 'panel-box', hidden: true });
+    const ratingBox = h('section', { class: 'rate', id: 'rating-box', 'aria-label': 'Rating' });
     const relBar = h('div', { class: 'rel-bar' });
     const panel = h('div', { class: 'rel-panel', id: 'rel-panel' });
     const history = h('ul', { class: 'history', id: 'history' });
@@ -468,7 +563,7 @@
 
     root.append(
       h('a', { class: 'crumb', href: '#/', text: '← All tracks' }),
-      head, editBox, addBox,
+      head, editBox, addBox, ratingBox,
       h('h3', { class: 'section-title', text: 'Release' }), relBar, panel,
       historyTitle, history,
       commentsTitle, commentList, commentBox
@@ -514,6 +609,7 @@
       const title = h('h2', { class: 'page-title', id: 't-name', text: t.name });
       head.append(title);
       head.append(t.description ? h('p', { class: 'desc', id: 't-desc', text: t.description }) : h('p', { class: 'desc none', id: 't-desc', text: 'No description.' }));
+      head.append(h('div', { class: 'tags' }, diffPill(t.difficulty, 't-diff')));
       head.append(h('div', { class: 'meta' }, 'by ', authorSpan(t.authorId), ' · created ' + fmtDate(t.createdAt) + ' · updated ' + fmtDate(t.updatedAt)));
       const actions = h('div', { class: 'actions' });
       if (isOwner()) {
@@ -541,12 +637,13 @@
       const eName = h('p', { class: 'err', role: 'alert' });
       const desc = h('textarea', { id: 'e-desc', class: 'short', maxlength: MAX.desc });
       desc.value = T.track.description;
+      const diff = difficultyField('e', T.track.difficulty);
       const save = h('button', { class: 'btn', type: 'submit', text: 'Save changes' });
       const cancel = h('button', { class: 'btn plain', type: 'button', text: 'Cancel' });
       cancel.addEventListener('click', () => { editBox.hidden = true; renderHead(); });
       const form = h('form', { class: 'form', novalidate: true },
         h('h3', { class: 'form-title', text: 'Edit track' }),
-        field('Track name', name, eName), field('Description', desc),
+        field('Track name', name, eName), field('Description', desc), diff.el,
         h('div', { class: 'submit-row' }, save, cancel));
       form.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -555,7 +652,7 @@
         setErr(eName, name, '');
         save.disabled = true;
         try {
-          await S.api.updateTrack(T.id, { name: nm.slice(0, MAX.name), description: desc.value.trim().slice(0, MAX.desc) });
+          await S.api.updateTrack(T.id, { name: nm.slice(0, MAX.name), description: desc.value.trim().slice(0, MAX.desc), difficulty: diff.read() });
           editBox.hidden = true; toast('Track updated');
           await load();
         } catch (err) {
@@ -717,6 +814,56 @@
       addBox.append(form);
     }
 
+    /* -- rating -- */
+    let rateBusy = false;
+    function renderRating() {
+      ratingBox.textContent = '';
+      const rs = T.ratings, n = rs.length;
+      const avg = n ? rs.reduce((a, g) => a + g.score, 0) / n : 0;
+      const mine = S.me.id ? rs.find((g) => g.userId === S.me.id) || null : null;
+      ratingBox.append(h('h3', { class: 'section-title', text: 'Rating' }));
+      ratingBox.append(h('div', { class: 'rate-top' },
+        h('span', { class: 'rate-avg' + (n ? '' : ' none'), id: 'rating-avg', text: n ? avg.toFixed(1) : 'No ratings yet' }),
+        checkpointBar({ value: Math.round(avg), label: ratingText(avg, n) }),
+        n ? h('span', { class: 'meta', id: 'rating-count', text: 'out of 5 · ' + plural(n, 'rating') }) : null));
+      if (n) {
+        const dist = h('ul', { class: 'dist', 'aria-label': 'Ratings by score' });
+        for (let sc = 5; sc >= 1; sc--) {
+          const c = rs.filter((g) => g.score === sc).length;
+          const fill = h('span', { class: 'fill' });
+          fill.style.width = Math.round((c / n) * 100) + '%';
+          dist.append(h('li', { 'data-score': sc }, h('span', { text: (sc === 5 ? 'Finish ' : 'CP ' + sc + ' ') + RATE_WORDS[sc] }), h('span', { class: 'track' }, fill), h('span', { text: String(c) })));
+        }
+        ratingBox.append(dist);
+      }
+      const box = h('div', { class: 'rate-mine' });
+      if (!S.me.id) box.append(h('p', { class: 'hint', id: 'rating-hint', text: 'Sign in with the box at the top of the page to rate this track.' }));
+      else if (isOwner()) box.append(h('p', { class: 'hint', id: 'rating-hint', text: 'You can’t rate your own track.' }));
+      else {
+        const note = h('p', { class: 'hint', id: 'rating-note', text: mine
+          ? 'You rated it ' + rateName(mine.score) + '. Pick another, or tap your score again to remove it.'
+          : 'Pick a checkpoint, or the finish line for a flawless track.' });
+        box.append(h('span', { class: 'lab', text: 'Your rating' }), checkpointBar({
+          interactive: true, value: mine ? mine.score : 0, label: 'Your rating',
+          onPick: async (score) => {
+            if (rateBusy) return;
+            rateBusy = true;
+            const hadFocus = ratingBox.contains(document.activeElement);
+            try {
+              if (score) await S.api.rateTrack(T.id, score); else await S.api.clearRating(T.id);
+              toast(score ? 'Rating saved' : 'Rating removed');
+              await load();
+            } catch (err) {
+              toast(err && err.code === 'forbidden' ? 'You can’t rate this track.' : 'Could not save your rating.');
+            }
+            rateBusy = false;
+            if (hadFocus) { const f = ratingBox.querySelector('.rate-mine [tabindex="0"]'); if (f) f.focus(); }
+          }
+        }), note);
+      }
+      ratingBox.append(box);
+    }
+
     /* -- comments -- */
     function renderComments() {
       commentsTitle.textContent = 'Comments (' + T.comments.length + ')';
@@ -792,14 +939,16 @@
     /* -- loading -- */
     async function load() {
       try {
-        const [t2, releases, comments] = await Promise.all([S.api.getTrack(T.id), S.api.listReleases(T.id), S.api.listComments(T.id)]);
+        // Ratings are a nicety: if they cannot load, the rest of the page still works.
+        const [t2, releases, comments, ratings] = await Promise.all([S.api.getTrack(T.id), S.api.listReleases(T.id), S.api.listComments(T.id),
+          S.api.listRatings ? S.api.listRatings(T.id).catch(() => T.ratings) : Promise.resolve(T.ratings)]);
         if (!alive()) return;
         if (!t2) { showMissing('Track not found', 'This track was deleted.'); return; }
-        T.track = t2; T.releases = releases; T.comments = comments; T.loaded = true;
+        T.track = t2; T.releases = releases; T.comments = comments; T.ratings = ratings; T.loaded = true;
         setBanner('');
         if (T.selectedId && !relById(T.selectedId)) T.selectedId = null;
         chooseSelection();
-        renderHead(); renderBar(); renderPanel(); renderHistory(); renderComments();
+        renderHead(); renderRating(); renderBar(); renderPanel(); renderHistory(); renderComments();
         ensureAddForm(); syncCommentSelect(false);
       } catch (e) {
         if (!alive()) return;
@@ -809,7 +958,7 @@
 
     S.refresh = load;
     buildCommentForm();
-    renderHead(); renderBar(); renderPanel(); renderHistory(); renderComments();
+    renderHead(); renderRating(); renderBar(); renderPanel(); renderHistory(); renderComments();
     panel.replaceChildren(h('p', { class: 'loading', text: 'Loading releases…' }));
     load();
     focusHeading(head.querySelector('h2'));
